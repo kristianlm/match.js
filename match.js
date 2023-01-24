@@ -1,96 +1,35 @@
 /// -*- js-indent-level: 2 -*-
 /// match specs in Vanilla JavaScript
-///
-/// I looked at `npm install z` but it doesn't support greedy/lazy
-/// repeat matching, and it seems quite inflexible compared to this
-/// approach.
 
-/// match.js is a library for matching patterns against JavaScript
-/// data-structures (primarily arrays at this point).
-///
-/// Let us say you wanted to check if a value (x) has this form
-/// (... means any number of subsequent values, possibly 0):
-///
-///    ['prefix', ...]
-///
-/// And in code that becomes something like:
-///
-///    if(x && x.length>=1 && x[0] === 'prefix') {...}
-///
-/// Or consider this:
-///
-///    [..., 'postfix']
-///
-/// if(x && x.length>=1 && x[x.length-1]==='postfix') {...}
-///
-/// Or let's say you wanted to test against nested structures like this:
-///
-///    ['and', ['==', 'username', (any string)], ...]
-///
-///    if(x && x.length>=2 && x[0] === 'and' && x[1] && x[1].length===3 && x[1][0]==='=='&&x[1][1]==='username' && typeof(x[1][2])==='string') {...}
-///
-/// This library tries to make this more manageable. These checks now look like this:
-///
-///    ['prefix', ...]   => ['prefix', greedy()]
-///    [..., 'postfix']  => [greedy(), 'postfix']
-///    ['and', ['==', 'username', (any string)], ...] => ['and', ['==', 'username', string()], greedy()]
-///
-/// You can also name parts (named groups in regex-terminology) using
-/// `name`. For example:
-///
-///   let mMiddle = match(['a', name('middle', any()), 'c']);
-///   let m = mMiddle(['a', 'B', 'c']);
-///   if(m) { console.log('middle is: ' + m.middle); }
-///
-/// The API actual code, we wrap the pattern in match() which returns
-/// a "predicate" (mMiddle above). The predicate is a function which
-/// returns either false (for no match found) or an object (when a
-/// match is found). When a match is found, you can use the returned
-/// match object to retrieve named parts (like `m.middle` above)
-///
-/// You may recognize that if we pretend that strings are arrays of
-/// characters, this library has a lot in common with regular
-/// expressions. any() is . and greedy() is *. Here are some examples:
-///
-///     abc           => ['a', 'b', 'c']
-///     a.c           => ['a', any(), 'c']
-///     a(b|B)c       => ['a', or('b', 'B'), 'c']
-///     abc.*         => ['a', 'b', 'c', greedy()]  ,---  any() is greedy's default predicate
-///     abc.*         => ['a', 'b', 'c', greedy(any())]
-///     a(b|B)*       => ['a', greedy(or('b', 'B'))]
-///     a(b|B)*       => ['a', greedy(or('b', 'B'))]
-///     a(b|B){2,3}   => ['a', greedy(or('b', 'B'), 2, 3)]
-///     (?<year>[0-9]{4})-(?<month>[0-9]{2})  =>  [name('year', greedy(number, 4, 4)), '-', name('month', greedy(number, 2, 2))]
-///
-/// You can try this in your devconsole:
-///
-/// > dateFormatIsOk=match([name('year', greedy(number, 4, 4)), '-', name('month', greedy(number, 2, 2))])
-/// ƒ (x, j) {...}
-///
-/// match returns a function which you can call with the object to
-/// match against as its sole argument., like this:
-///
-/// > dateFormatIsOk([2,0,2,1,'-',0,4])
-/// {"year":[2,0,2,1],"month":[0,4]}
-///
-/// Note that the example above deals with strings only to illustrate
-/// the similarities, you shouldn't use this library if your data is
-/// all strings (then you should parse it into a structure or use
-/// regex). The intended use case for this library is for highly
-/// nested arrays, like this:
-///
-///       ['and',
-///        ['<=', 'year', 2000],
-///        [ '>', 'year', 1990],
-///        ['or',
-///         ['==', 'username', 'guest'],
-///         ['==', 'username', 'anonymous']]]
-///
-/// I'm afraid you'll have to see the test suite for more usage
-/// examples.
-///
-/// ============================================================
 
+/// ============================== test utils ==============================
+if(typeof(testing) === 'undefined') {
+  testing = function(what, body) {
+    // https://stackoverflow.com/questions/1068834/object-comparison-in-javascript
+    function object_equals( x, y ) {
+      if( x === y ) return true;
+      if( ! ( x instanceof Object ) || ! ( y instanceof Object ) ) return false;
+      if( x.constructor !== y.constructor ) return false;
+      for( var p in x ) {
+        if( ! x.hasOwnProperty( p ) ) continue;
+        if( ! y.hasOwnProperty( p ) ) return false;
+        if( ! object_equals( x[ p ],  y[ p ] ) ) return false;
+      }
+      for( p in y ) {
+        if( y.hasOwnProperty( p ) && ! x.hasOwnProperty( p ) ) return false;
+      }
+      return true;
+    }
+
+    body(function(actual, expected) {
+      if(!object_equals(actual, expected)) {
+        console.log("obs: ", actual , "≠", expected);
+      }
+    });
+  };
+}
+
+// =============================================================================
 
 // conveniently wrap literals into function so that you can write
 // [1,2,[3]] instead of lst(is(1),is(2),lst(is(3))).
@@ -451,3 +390,4 @@ testing("select", function(check) {
   check(select(0, [match(1),m=>'not ok',  match(0),m=>'ok'],  x=>'fallback'), 'ok');
   check(select(2, [match(1),m=>'not ok',  match(0),m=>'ok'],  x=>'fallback'), 'fallback');
 });
+
